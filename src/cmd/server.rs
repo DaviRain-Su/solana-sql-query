@@ -1,15 +1,17 @@
-use axum::{
-    async_trait,
-    extract::{FromRef, FromRequestParts, State},
-    http::{request::Parts, StatusCode},
-    routing::get,
-    Router,
-};
 use clap::Parser;
-use sqlx::postgres::{PgPool, PgPoolOptions};
-use tokio::net::TcpListener;
+use redb::{Database, TableDefinition};
+use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcBlockConfig;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_transaction_status::UiInstruction;
+use solana_transaction_status::UiParsedInstruction;
+use solana_transaction_status::UiTransactionEncoding;
+use solana_transaction_status::{EncodedTransaction, UiMessage};
+use tracing::info;
 
-use std::time::Duration;
+const TABLE: TableDefinition<u64, &[u8]> = TableDefinition::new("solana-block");
+
+mod db;
 
 #[derive(Parser, Debug)]
 pub struct Server {
@@ -29,80 +31,77 @@ pub struct Server {
 
 impl Server {
     pub async fn run(&self) -> anyhow::Result<()> {
-        let db_connection_str = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:password@localhost".to_string());
+        let client = RpcClient::new("https://gayleen-v43l6p-fast-mainnet.helius-rpc.com");
+        let db = Database::create("solana.redb")?;
+        let write_txn = db.begin_write()?;
+        for solt in 0.. {
+            let mut table = write_txn.open_table(TABLE)?;
+            info!("processing slot: {}", solt);
+            // 配置请求参数，包含 maxSupportedTransactionVersion
+            let config = RpcBlockConfig {
+                encoding: Some(UiTransactionEncoding::JsonParsed),
+                transaction_details: Some(solana_transaction_status::TransactionDetails::Full),
+                rewards: None,
+                commitment: Some(CommitmentConfig::finalized()),
+                max_supported_transaction_version: Some(0),
+            };
+            let mut result = client.get_block_with_config(solt, config)?;
+            let tx = result.transactions.unwrap_or_default();
+            info!("tx len all have {}", tx.len());
 
-        // set up connection pool
-        let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(Duration::from_secs(3))
-            .connect(&db_connection_str)
-            .await
-            .expect("can't connect to database");
+            // filter success tx
+            let txs_success = tx
+                .into_iter()
+                .filter(|tx| {
+                    if let Some(meta) = &tx.meta {
+                        meta.err.is_none()
+                    } else {
+                        true
+                    }
+                })
+                .collect::<Vec<_>>();
 
-        // build our application with some routes
-        let app = Router::new()
-            .route(
-                "/",
-                get(using_connection_pool_extractor).post(using_connection_extractor),
-            )
-            .with_state(pool);
+            info!("tx_success length: {}", txs_success.len());
 
-        let addr = format!("{}:{}", self.host, self.port);
+            // filter vote program instruction Vote111111111111111111111111111111111111111
+            let mut filter_vote_program = Vec::new();
+            for tx1 in txs_success.iter() {
+                match &tx1.transaction {
+                    EncodedTransaction::Json(tx) => match &tx.message {
+                        // judege fisrt instruction is not vote program
+                        UiMessage::Parsed(message) => match &message.instructions[0] {
+                            UiInstruction::Compiled(_compiled) => todo!(),
+                            UiInstruction::Parsed(parsed) => match parsed {
+                                UiParsedInstruction::Parsed(value1) => {
+                                    if value1.program != "vote" {
+                                        filter_vote_program.push(tx1.clone());
+                                    }
+                                }
+                                UiParsedInstruction::PartiallyDecoded(_value2) => {
+                                    filter_vote_program.push(tx1.clone());
+                                }
+                            },
+                        },
+                        UiMessage::Raw(_) => unimplemented!(),
+                    },
+                    _ => unimplemented!(),
+                }
+            }
 
-        // run it with hyper
-        let listener = TcpListener::bind(addr).await?;
-        tracing::debug!("listening on {}", listener.local_addr()?);
-        axum::serve(listener, app).await?;
+            info!(
+                "filter_vote_program after length: {}",
+                filter_vote_program.len()
+            );
+            result.transactions = Some(filter_vote_program);
+
+            table.insert(solt, &*bincode::serialize(&result)?)?;
+        }
+        write_txn.commit()?;
+
+        let read_txn = db.begin_read()?;
+        let table = read_txn.open_table(TABLE)?;
+        println!("{:?}", table);
+
         Ok(())
     }
-}
-
-// we can extract the connection pool with `State`
-async fn using_connection_pool_extractor(
-    State(pool): State<PgPool>,
-) -> Result<String, (StatusCode, String)> {
-    sqlx::query_scalar("select 'hello world from pg'")
-        .fetch_one(&pool)
-        .await
-        .map_err(internal_error)
-}
-
-// we can also write a custom extractor that grabs a connection from the pool
-// which setup is appropriate depends on your application
-struct DatabaseConnection(sqlx::pool::PoolConnection<sqlx::Postgres>);
-
-#[async_trait]
-impl<S> FromRequestParts<S> for DatabaseConnection
-where
-    PgPool: FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, String);
-
-    async fn from_request_parts(_parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let pool = PgPool::from_ref(state);
-
-        let conn = pool.acquire().await.map_err(internal_error)?;
-
-        Ok(Self(conn))
-    }
-}
-
-async fn using_connection_extractor(
-    DatabaseConnection(mut conn): DatabaseConnection,
-) -> Result<String, (StatusCode, String)> {
-    sqlx::query_scalar("select 'hello world from pg'")
-        .fetch_one(&mut *conn)
-        .await
-        .map_err(internal_error)
-}
-
-/// Utility function for mapping any error into a `500 Internal Server Error`
-/// response.
-fn internal_error<E>(err: E) -> (StatusCode, String)
-where
-    E: std::error::Error,
-{
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
 }
