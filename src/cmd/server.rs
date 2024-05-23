@@ -34,7 +34,8 @@ impl Server {
         let client = RpcClient::new("https://gayleen-v43l6p-fast-mainnet.helius-rpc.com");
         let db = Database::create("solana.redb")?;
         let write_txn = db.begin_write()?;
-        for solt in 0.. {
+        // make parrallel request use thread pool
+        for solt in 32030090.. {
             let mut table = write_txn.open_table(TABLE)?;
             info!("processing slot: {}", solt);
             // 配置请求参数，包含 maxSupportedTransactionVersion
@@ -92,9 +93,12 @@ impl Server {
                 "filter_vote_program after length: {}",
                 filter_vote_program.len()
             );
+            let len = filter_vote_program.len();
             result.transactions = Some(filter_vote_program);
 
-            table.insert(solt, &*bincode::serialize(&result)?)?;
+            if len != 0 {
+                table.insert(solt, &*bincode::serialize(&result)?)?;
+            }
         }
         write_txn.commit()?;
 
