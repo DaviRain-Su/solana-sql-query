@@ -7,9 +7,23 @@ edition = "2021"
 actix-rt = "2.9.0"
 actix-web = "4.6.0"
 anyhow = "1.0.86"
+serde = { version = "1.0.202", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+# Using table-like toml syntax to avoid a super-long line!
+[dependencies.sqlx]
+version = "0.7"
+default-features = false
+features = [
+    "runtime-tokio-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "migrate",
+]
 
 [dev-dependencies]
 reqwest = "0.11"
