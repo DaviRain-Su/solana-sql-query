@@ -35,6 +35,7 @@ features = [
 
 [dev-dependencies]
 reqwest = "0.11"
+once_cell = "1"
 
 [lib]
 # We could use any path here, but we are following the community convention
