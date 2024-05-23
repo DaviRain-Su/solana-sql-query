@@ -1,8 +1,7 @@
-use std::net::TcpListener;
-
 use actix_web::dev::Server;
 use actix_web::HttpResponse;
 use actix_web::{web, App, HttpServer};
+use std::net::TcpListener;
 
 pub async fn health_check() -> HttpResponse {
     tracing::info!("health_check");
