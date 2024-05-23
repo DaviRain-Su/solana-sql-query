@@ -1,4 +1,4 @@
-use solana_query_service::run;
+use solana_query_service::startup::run;
 use std::net::TcpListener;
 
 #[tokio::main]

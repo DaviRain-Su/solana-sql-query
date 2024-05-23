@@ -1,7 +1,7 @@
 //! tests/health_check.rs
 use std::net::TcpListener;
 
-use solana_query_service::health_check;
+use solana_query_service::router::health_check;
 
 #[tokio::test]
 async fn test_health_check() {
@@ -82,7 +82,7 @@ fn spawn_app() -> anyhow::Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     // We retrieve the port assigned to us by the OS
     let port = listener.local_addr()?.port();
-    let server = solana_query_service::run(listener)?;
+    let server = solana_query_service::startup::run(listener)?;
     // Launch the server as a background task
     // tokio::spawn returns a handle to the spawned future,
     // but we have no use for it here, hence the non-binding let
