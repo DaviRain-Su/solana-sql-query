@@ -7,6 +7,7 @@ edition = "2021"
 actix-rt = "2.9.0"
 actix-web = "4.6.0"
 anyhow = "1.0.86"
+config = "0.14.0"
 serde = { version = "1.0.202", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.40"
