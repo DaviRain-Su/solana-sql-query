@@ -2,10 +2,10 @@ use crate::router::health_check;
 use crate::router::subscribe;
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
-use sqlx::PgConnection;
+use sqlx::PgPool;
 use std::net::TcpListener;
 
-pub fn run(listener: TcpListener, connection: PgConnection) -> anyhow::Result<Server> {
+pub fn run(listener: TcpListener, connection: PgPool) -> anyhow::Result<Server> {
     tracing::info!(
         "Starting server listening on http://{}",
         listener.local_addr()?
