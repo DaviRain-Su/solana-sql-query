@@ -1,8 +1,13 @@
 //! tests/health_check.rs
-use sqlx::{Connection, PgConnection};
+use sqlx::Connection;
+use sqlx::Executor;
+use sqlx::PgConnection;
+use sqlx::PgPool;
 use std::net::TcpListener;
+use uuid::Uuid;
 
 use solana_query_service::configuration::get_configuration;
+use solana_query_service::configuration::DatabaseSettings;
 use solana_query_service::router::health_check;
 
 #[tokio::test]
@@ -19,12 +24,15 @@ async fn test_health_check() {
 #[tokio::test]
 async fn health_check_works() -> anyhow::Result<()> {
     // Arrange
-    let addr = spawn_app()?;
+    let test_app = spawn_app().await?;
     // We need to bring in `reqwest`
     // to perform HTTP requests against our application.
     let client = reqwest::Client::new();
     // Act
-    let response = client.get(format!("{}/health_check", addr)).send().await?;
+    let response = client
+        .get(format!("{}/health_check", test_app.address))
+        .send()
+        .await?;
     // Assert
     assert!(response.status().is_success());
     assert_eq!(Some(0), response.content_length());
@@ -34,28 +42,23 @@ async fn health_check_works() -> anyhow::Result<()> {
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() -> anyhow::Result<()> {
     // Arrange
-    let app_address = spawn_app()?;
-
-    let configuration = get_configuration()?;
-    let connection_string = configuration.database.connection_string();
-    //println!("connection_string: {:?}", connection_string);
-    let mut connection = PgConnection::connect(&connection_string).await?;
-    //println!("connection: {:?}", connection);
-
+    let test_app = spawn_app().await?;
     let client = reqwest::Client::new();
+
     // Act
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
-        .post(&format!("{}/subscriptions", &app_address))
+        .post(&format!("{}/subscriptions", &test_app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
         .await?;
+
     // Assert
     assert_eq!(200, response.status().as_u16());
 
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(&test_app.db_pool)
         .await?;
 
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
@@ -67,7 +70,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() -> anyhow::Result<()> {
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing() -> anyhow::Result<()> {
     // Arrange
-    let app_address = spawn_app()?;
+    let test_app = spawn_app().await?;
     let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
@@ -77,7 +80,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() -> anyhow::Result<()> {
     for (invalid_body, error_message) in test_cases {
         // Act
         let response = client
-            .post(&format!("{}/subscriptions", &app_address))
+            .post(&format!("{}/subscriptions", &test_app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
@@ -93,17 +96,45 @@ async fn subscribe_returns_a_400_when_data_is_missing() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[derive(Debug)]
+pub struct TestApp {
+    pub address: String,
+    pub db_pool: PgPool,
+}
+
 // Launch our application in the background ~somehow~
-fn spawn_app() -> anyhow::Result<String> {
+async fn spawn_app() -> anyhow::Result<TestApp> {
     //
     let listener = TcpListener::bind("127.0.0.1:0")?;
     // We retrieve the port assigned to us by the OS
     let port = listener.local_addr()?.port();
-    let server = solana_query_service::startup::run(listener)?;
+    let address = format!("http://127.0.0.1:{}", port);
+    let mut configuration = get_configuration()?;
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    let connection_pool = configure_database(&configuration.database).await?;
+    let server = solana_query_service::startup::run(listener, connection_pool.clone())?;
+
     // Launch the server as a background task
     // tokio::spawn returns a handle to the spawned future,
     // but we have no use for it here, hence the non-binding let
     let _ = tokio::spawn(server);
     // We return the application address to the caller!
-    Ok(format!("http://127.0.0.1:{}", port))
+    Ok(TestApp {
+        address,
+        db_pool: connection_pool,
+    })
+}
+
+pub async fn configure_database(config: &DatabaseSettings) -> anyhow::Result<PgPool> {
+    // Create database
+    let mut connection = PgConnection::connect(&config.connection_string_without_db()).await?;
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await?;
+    // Migrate database
+    let connection_pool = PgPool::connect(&config.connection_string()).await?;
+    sqlx::migrate!("./migrations").run(&connection_pool).await?;
+
+    Ok(connection_pool)
 }
