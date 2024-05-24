@@ -13,15 +13,15 @@ services:
     dockerfile_path: Dockerfile
     source_dir: .
     github:
-    # Depending on when you created the repository,
-    # the default branch on GitHub might have been named `master`
-    branch: master
-    # Deploy a new version on every commit to `main`!
-    # Continuous Deployment, here we come!
-    deploy_on_push: true
-    # !!! Fill in with your details
-    # e.g. LukeMathWalker/zero-to-production
-    repo: DaviRain-Su/solana-sql-query
+      # Depending on when you created the repository,
+      # the default branch on GitHub might have been named `master`
+      branch: master
+      # Deploy a new version on every commit to `main`!
+      # Continuous Deployment, here we come!
+      deploy_on_push: true
+      # !!! Fill in with your details
+      # e.g. LukeMathWalker/zero-to-production
+      repo: DaviRain-Su/solana-sql-query
     # Active probe used by DigitalOcean's to ensure our application is healthy
     health_check:
       # The path to our health check endpoint!
