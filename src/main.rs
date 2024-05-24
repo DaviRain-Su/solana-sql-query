@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     let configuration = get_configuration()?;
     tracing::info!("config: {:?}", configuration);
     let connection =
-        PgPool::connect(&configuration.database.connection_string().expose_secret()).await?;
+        PgPool::connect(configuration.database.connection_string().expose_secret()).await?;
     let address = format!("127.0.0.1:{}", configuration.application_port);
     let listener = TcpListener::bind(address)?;
     run(listener, connection)?.await?;
