@@ -1,6 +1,5 @@
 //! tests/health_check.rs
 use once_cell::sync::Lazy;
-use secrecy::ExposeSecret;
 use sqlx::Connection;
 use sqlx::Executor;
 use sqlx::PgConnection;
@@ -151,13 +150,14 @@ async fn spawn_app() -> anyhow::Result<TestApp> {
 
 pub async fn configure_database(config: &DatabaseSettings) -> anyhow::Result<PgPool> {
     // Create database
-    let mut connection =
-        PgConnection::connect(&config.connection_string_without_db().expose_secret()).await?;
+    let mut connection = PgConnection::connect_with(&config.without_db()).await?;
     connection
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await?;
+
     // Migrate database
-    let connection_pool = PgPool::connect(&config.connection_string().expose_secret()).await?;
+    let connection_pool = PgPool::connect_with(config.with_db()).await?;
+    // Migrate database
     sqlx::migrate!("./migrations").run(&connection_pool).await?;
 
     Ok(connection_pool)

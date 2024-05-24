@@ -1,9 +1,8 @@
-use secrecy::ExposeSecret;
 use solana_query_service::configuration::get_configuration;
 use solana_query_service::startup::run;
 use solana_query_service::telemetry::get_subscriber;
 use solana_query_service::telemetry::init_subscriber;
-use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 
 #[tokio::main]
@@ -23,10 +22,12 @@ async fn main() -> anyhow::Result<()> {
         configuration.application.host, configuration.application.port
     );
     // No longer async, given that we don't actually try to connect!
-    let connection =
-        PgPool::connect_lazy(configuration.database.connection_string().expose_secret())?;
+    let connection_pool = PgPoolOptions::new()
+        // `connect_lazy_with` instead of `connect_lazy`
+        .connect_lazy_with(configuration.database.with_db());
+
     let listener = TcpListener::bind(address)?;
-    run(listener, connection)?.await?;
+    run(listener, connection_pool)?.await?;
 
     Ok(())
 }
