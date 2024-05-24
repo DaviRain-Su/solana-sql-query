@@ -8,15 +8,23 @@ use std::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let subscriber = get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
+    let subscriber = get_subscriber(
+        "solana-query-service".into(),
+        "info".into(),
+        std::io::stdout,
+    );
     init_subscriber(subscriber)?;
 
     // Panic if we can't read configuration
     let configuration = get_configuration()?;
     tracing::info!("config: {:?}", configuration);
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
+    // No longer async, given that we don't actually try to connect!
     let connection =
-        PgPool::connect(configuration.database.connection_string().expose_secret()).await?;
-    let address = format!("127.0.0.1:{}", configuration.application_port);
+        PgPool::connect_lazy(configuration.database.connection_string().expose_secret())?;
     let listener = TcpListener::bind(address)?;
     run(listener, connection)?.await?;
 
