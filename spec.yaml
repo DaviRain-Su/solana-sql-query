@@ -62,4 +62,6 @@ databases:
     num_nodes: 1
     size: db-s-dev-database
     # Postgres version
+    # MUST USE 14 version for now
+    # if change to 16 version, sqlx migrate will not work
     version: "14"
