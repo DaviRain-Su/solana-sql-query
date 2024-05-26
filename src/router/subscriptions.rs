@@ -7,10 +7,12 @@ use uuid::Uuid;
 // on `String` and `&str`
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::domain::NewSubscriber;
+
 #[derive(serde::Deserialize)]
 pub struct FormData {
-    email: String,
-    name: String,
+    pub email: String,
+    pub name: String,
 }
 
 #[tracing::instrument(
@@ -27,10 +29,11 @@ pub async fn subscribe(
     // Retrieving a connection from the application state!
     pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    if !is_valid_name(&form.name) {
-        return HttpResponse::BadRequest().finish();
-    }
-    match insert_subscriber(&pool, &form).await {
+    let new_subscriber = match form.0.try_into() {
+        Ok(form) => form,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+    match insert_subscriber(&pool, &new_subscriber).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             // Yes, this error log falls outside of `query_span`
@@ -66,17 +69,20 @@ pub fn is_valid_name(s: &str) -> bool {
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(form, pool)
+    skip(new_subscriber, pool)
 )]
-pub async fn insert_subscriber(pool: &PgPool, form: &FormData) -> anyhow::Result<()> {
+pub async fn insert_subscriber(
+    pool: &PgPool,
+    new_subscriber: &NewSubscriber,
+) -> anyhow::Result<()> {
     sqlx::query!(
         r#"
 INSERT INTO subscriptions (id, email, name, subscribed_at)
 VALUES ($1, $2, $3, $4)
 "#,
         Uuid::new_v4(),
-        form.email,
-        form.name,
+        new_subscriber.email.as_ref(),
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     .execute(pool)
