@@ -1,7 +1,8 @@
 use validator::ValidateEmail;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubscriberEmail(String);
+
 impl SubscriberEmail {
     pub fn parse(s: String) -> anyhow::Result<SubscriberEmail> {
         if s.validate_email() {

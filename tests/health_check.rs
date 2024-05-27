@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use solana_query_service::configuration::get_configuration;
 use solana_query_service::configuration::DatabaseSettings;
+use solana_query_service::email_client::EmailClient;
 use solana_query_service::router::health_check;
 use solana_query_service::telemetry::{get_subscriber, init_subscriber};
 
@@ -165,7 +166,16 @@ async fn spawn_app() -> anyhow::Result<TestApp> {
     let mut configuration = get_configuration()?;
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration.database).await?;
-    let server = solana_query_service::startup::run(listener, connection_pool.clone())?;
+    // Build a new email client
+    let sender_email = configuration.email_client.sender()?;
+    let email_client = EmailClient::new(
+        configuration.email_client.base_url,
+        sender_email,
+        configuration.email_client.authorization_token,
+    );
+
+    let server =
+        solana_query_service::startup::run(listener, connection_pool.clone(), email_client)?;
 
     // Launch the server as a background task
     // tokio::spawn returns a handle to the spawned future,
