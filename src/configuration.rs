@@ -1,6 +1,5 @@
 //! src/configuration.rs
 use crate::domain::SubscriberEmail;
-use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
@@ -18,7 +17,7 @@ pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
     // New (secret) configuration value!
-    pub authorization_token: Secret<String>,
+    pub authorization_token: String,
 }
 
 impl EmailClientSettings {
@@ -30,7 +29,7 @@ impl EmailClientSettings {
 #[derive(serde::Deserialize, Debug)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: Secret<String>,
+    pub password: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
@@ -47,27 +46,6 @@ pub struct ApplicationSettings {
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port,
-            self.database_name
-        ))
-    }
-
-    pub fn connection_string_without_db(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port
-        ))
-    }
-
     // Renamed from `connection_string_without_db`
     pub fn without_db(&self) -> PgConnectOptions {
         let ssl_mode = if self.require_ssl {
@@ -79,7 +57,7 @@ impl DatabaseSettings {
         PgConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
-            .password(self.password.expose_secret())
+            .password(&self.password)
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
@@ -88,6 +66,7 @@ impl DatabaseSettings {
         self.without_db()
             .database(&self.database_name)
             .log_statements(tracing_log::log::LevelFilter::Trace)
+            .clone()
     }
 }
 

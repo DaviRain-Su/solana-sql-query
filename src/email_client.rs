@@ -1,6 +1,5 @@
 use crate::domain::SubscriberEmail;
 use reqwest::Client;
-use secrecy::{ExposeSecret, Secret};
 
 #[derive(Debug, Clone)]
 pub struct EmailClient {
@@ -8,15 +7,11 @@ pub struct EmailClient {
     base_url: String,
     sender: SubscriberEmail,
     // We don't want to log this by accident
-    authorization_token: Secret<String>,
+    authorization_token: String,
 }
 
 impl EmailClient {
-    pub fn new(
-        base_url: String,
-        sender: SubscriberEmail,
-        authorization_token: Secret<String>,
-    ) -> Self {
+    pub fn new(base_url: String, sender: SubscriberEmail, authorization_token: String) -> Self {
         Self {
             http_client: Client::new(),
             base_url,
@@ -46,10 +41,7 @@ impl EmailClient {
         let _builder = self
             .http_client
             .post(&url)
-            .header(
-                "X-Postmark-Server-Token",
-                self.authorization_token.expose_secret(),
-            )
+            .header("X-Postmark-Server-Token", self.authorization_token.clone())
             .json(&request_body)
             .send()
             .await?;
@@ -75,7 +67,7 @@ mod test {
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::{Fake, Faker};
-    use secrecy::Secret;
+
     use wiremock::matchers::{header, header_exists, method, path};
     use wiremock::Request;
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -107,7 +99,7 @@ mod test {
         // Arrange
         let mock_server = MockServer::start().await;
         let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let email_client = EmailClient::new(mock_server.uri(), sender, Secret::new(Faker.fake()));
+        let email_client = EmailClient::new(mock_server.uri(), sender, Faker.fake());
         let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
         let subject: String = Sentence(1..2).fake();
         let content: String = Paragraph(1..10).fake();
