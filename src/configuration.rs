@@ -1,5 +1,6 @@
 //! src/configuration.rs
 use crate::domain::SubscriberEmail;
+use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::postgres::PgSslMode;
@@ -17,7 +18,7 @@ pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
     // New (secret) configuration value!
-    pub authorization_token: String,
+    pub authorization_token: Secret<String>,
 }
 
 impl EmailClientSettings {
@@ -29,7 +30,7 @@ impl EmailClientSettings {
 #[derive(serde::Deserialize, Debug)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: String,
+    pub password: Secret<String>,
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
@@ -57,7 +58,7 @@ impl DatabaseSettings {
         PgConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
-            .password(&self.password)
+            .password(self.password.expose_secret())
             .port(self.port)
             .ssl_mode(ssl_mode)
     }
