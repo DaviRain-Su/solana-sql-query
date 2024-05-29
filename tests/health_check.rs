@@ -7,6 +7,7 @@ use sqlx::PgPool;
 use std::net::TcpListener;
 use uuid::Uuid;
 
+use solana_query_service::client::SolanaClient;
 use solana_query_service::configuration::get_configuration;
 use solana_query_service::configuration::DatabaseSettings;
 use solana_query_service::email_client::EmailClient;
@@ -174,8 +175,14 @@ async fn spawn_app() -> anyhow::Result<TestApp> {
         configuration.email_client.authorization_token,
     );
 
-    let server =
-        solana_query_service::startup::run(listener, connection_pool.clone(), email_client)?;
+    let solana_client = SolanaClient::new(&configuration.solana.rpc_url);
+
+    let server = solana_query_service::startup::run(
+        listener,
+        connection_pool.clone(),
+        email_client,
+        solana_client,
+    )?;
 
     // Launch the server as a background task
     // tokio::spawn returns a handle to the spawned future,

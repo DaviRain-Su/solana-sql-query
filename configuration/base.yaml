@@ -15,3 +15,5 @@ email_client:
   # we'll deal with the production token outside of version control
   # (given that it's a sensitive secret!)
   authorization_token: "my-secret-token"
+solana:
+  rpc_url: "https://gayleen-v43l6p-fast-mainnet.helius-rpc.com"

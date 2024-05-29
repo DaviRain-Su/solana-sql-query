@@ -11,6 +11,12 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub solana: SolanaSettings,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct SolanaSettings {
+    pub rpc_url: String,
 }
 
 #[derive(serde::Deserialize, Debug)]

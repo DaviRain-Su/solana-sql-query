@@ -1,3 +1,4 @@
+use solana_query_service::client::SolanaClient;
 use solana_query_service::configuration::get_configuration;
 use solana_query_service::email_client::EmailClient;
 use solana_query_service::startup::run;
@@ -6,7 +7,7 @@ use solana_query_service::telemetry::init_subscriber;
 use sqlx::postgres::PgPoolOptions;
 use std::net::TcpListener;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     let subscriber = get_subscriber(
         "solana-query-service".into(),
@@ -37,8 +38,10 @@ async fn main() -> anyhow::Result<()> {
         configuration.email_client.authorization_token,
     );
 
+    let solana_client = SolanaClient::new(&configuration.solana.rpc_url);
+
     let listener = TcpListener::bind(address)?;
-    run(listener, connection_pool, email_client)?.await?;
+    run(listener, connection_pool, email_client, solana_client)?.await?;
 
     Ok(())
 }
