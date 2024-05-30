@@ -57,7 +57,6 @@ pub async fn subscrib_address(
     let new_txs = tokio::task::spawn_blocking(move || {
         let new_txs = get_address_tx_signature(&address, solana_client.get_ref())?
             .into_iter()
-            .into_iter()
             .enumerate()
             .map(|(idx, tx_signature)| NewTx {
                 tx_signature,
