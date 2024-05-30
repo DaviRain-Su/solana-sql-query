@@ -40,6 +40,7 @@ features = [
     "uuid",
     "chrono",
     "migrate",
+    "offline",
 ]
 
 [dependencies.reqwest]

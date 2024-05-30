@@ -1,3 +1,85 @@
 {
-  "db": "PostgreSQL"
+  "db": "PostgreSQL",
+  "4158ff041bc8b3e86e4178398171077760cc03a8ea9d31589bb32b661ed17112": {
+    "describe": {
+      "columns": [
+        {
+          "name": "max_sequence",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\n           SELECT MAX(sequence_number) as max_sequence FROM address_tx WHERE address = $1\n           "
+  },
+  "7ca4e1b2fd3eb0780bafd01990932bd75ffc51b3f43ad4a6cf3f9eedef801a82": {
+    "describe": {
+      "columns": [
+        {
+          "name": "tx_signature",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "address",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "sequence_number",
+          "ordinal": 2,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT tx_signature, address, sequence_number FROM address_tx WHERE address = $1"
+  },
+  "7fd01c52effb1d23f5e242b9a8d05564de3c7a1178c1c2f5f056490e3d704736": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO subscriptions (id, email, name, subscribed_at)\nVALUES ($1, $2, $3, $4)\n"
+  },
+  "e09576b34a8ae920cda64216705b508a32b1e0726e993a11f04cc5249ff0e59f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO address_tx (id, tx_signature, address, sequence_number)\n            VALUES ($1, $2, $3, $4)\n            "
+  }
 }
