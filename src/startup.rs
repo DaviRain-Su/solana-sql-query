@@ -39,7 +39,7 @@ pub fn run(
             // A new entry in our routing table for POST /subscriptions requests
             .route("/subscriptions", web::post().to(subscribe))
             .route("/address2tx", web::post().to(subscrib_address))
-            .route("/txs", web::post().to(txs))
+            .route("/txs", web::get().to(txs))
             .app_data(connection.clone())
             .app_data(email_client.clone())
             .app_data(solana_client.clone())

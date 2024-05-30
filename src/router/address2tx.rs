@@ -132,7 +132,7 @@ pub async fn insert_address2tx(pool: &PgPool, new_tx: &NewTx) -> anyhow::Result<
 }
 
 #[tracing::instrument(name = "Fetching all transactions for an address", skip(form, pool))]
-pub async fn txs(form: web::Form<Address2txFormData>, pool: web::Data<PgPool>) -> HttpResponse {
+pub async fn txs(form: web::Query<Address2txFormData>, pool: web::Data<PgPool>) -> HttpResponse {
     let result = sqlx::query_as!(
         NewTx,
         "SELECT tx_signature, address, sequence_number FROM address_tx WHERE address = $1",
