@@ -17,6 +17,7 @@ RUN cargo build --release
 
 # Runtime stage
 FROM debian:bookworm-slim AS runtime
+
 WORKDIR /app
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
